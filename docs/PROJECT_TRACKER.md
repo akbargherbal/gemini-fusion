@@ -1,6 +1,6 @@
 # Gemini Fusion - Project Tracker v0.1.0
 
-**Last Updated:** 2025-08-14 (Session 0)
+**Last Updated:** 2025-08-16 (End of Session 2)
 
 ### **1. Governance and Change Control**
 
@@ -20,35 +20,35 @@ This ensures that our project's "law" and its "enforcement" remain in perfect al
 
 ### **2. High-Level Status**
 
-- **Overall Progress:** 0%
-- **Current Milestone:** Milestone 1: Backend Foundation & Connectivity
-- **Session Goal:** Project setup, planning review, and establishing our workflow.
-- **Focus for Next Session:** Begin Milestone 1 by creating the `tests/` directory and then defining the database models.
+- **Overall Progress:** 60%
+- **Current Milestone:** Milestone 2: The Core Chat Loop
+- **Focus for Next Session:** Begin frontend development by connecting the UI to our new streaming API endpoint.
 
 ---
 
 ### **3. Milestone Checklist**
 
-#### **Milestone 1: Backend Foundation & Connectivity (`In Progress`)**
+#### **Milestone 1: Backend Foundation & Connectivity (`Complete`)**
 
 - **Goal:** Establish a functional FastAPI backend with a connected database and basic, non-streaming API endpoints.
 - **Tasks:**
-  - [>] **Environment & Project Setup:** Create the `tests/` directory and update `.gitignore`.
-  - [ ] **Define Database Models:** Create `Conversation` and `Message` SQLModel classes in `db/models.py`.
-  - [ ] **Implement Database Logic:** Write functions in `db/database.py` to create the SQLite engine and initialize tables on startup.
-  - [ ] **Test Database Models:** Write a `Pytest` file to verify model creation and session commits.
-  - [ ] **Define Pydantic Schemas:** Create `ChatRequest`, `ConversationRead`, and `MessageRead` in `schemas/chat.py`.
-  - [ ] **Build Conversation Endpoints:** Implement `GET /api/conversations` and `GET /api/conversations/{conversation_id}`.
-  - [ ] **Build a Synchronous Chat Endpoint:** Implement `POST /api/chat/sync` as a temporary test endpoint.
-  - [ ] **Integration Test for Endpoints:** Test all endpoints with `TestClient` to verify database interaction.
+  - [x] **Environment & Project Setup:** Create the `tests/` directory and update `.gitignore`.
+  - [x] **Define Database Models:** Create `Conversation` and `Message` SQLModel classes in `db/models.py`.
+  - [x] **Test Database Models:** Write a `Pytest` file to verify model creation and session commits.
+  - [x] **Implement Database Logic:** Write functions in `db/database.py` to create the SQLite engine and initialize tables on startup.
+  - [x] **Define Pydantic Schemas:** Create `ChatRequest`, `ConversationRead`, and `MessageRead` in `schemas/chat.py`.
+  - [x] **Build Conversation Endpoints:** Implement `GET /api/conversations` and `GET /api/conversations/{conversation_id}`.
+  - [x] **Build a Synchronous Chat Endpoint:** Implement `POST /api/chat/sync` as a temporary test endpoint.
+  - [x] **Integration Test for Endpoints:** Test all endpoints with `TestClient` to verify database interaction.
 
-#### **Milestone 2: The Core Chat Loop (`To Do`)**
+#### **Milestone 2: The Core Chat Loop (`In Progress`)**
 
 - **Goal:** Implement the end-to-end user journey of sending a message and receiving a streamed response from the live Gemini API.
 - **Tasks:**
-  - [ ] **Gemini Service Module:** Create a testable service in `services/gemini_service.py` that streams responses from the Google API.
-  - [ ] **Unit Test Gemini Service:** Write a `Pytest` unit test for the service, mocking the external API call.
-  - [ ] **Implement SSE Streaming Endpoint:** In `routers/chat.py`, create the `POST /api/chat/stream` endpoint using `EventSourceResponse`.
+  - [x] **Gemini Service Module:** Create a testable service in `services/gemini_service.py` that streams responses from the Google API.
+  - [x] **Unit Test Gemini Service:** Write a `Pytest` unit test for the service, mocking the external API call.
+  - [x] **Implement SSE Streaming Endpoint:** In `routers/chat.py`, create the `POST /api/chat/stream` endpoint using `EventSourceResponse`.
+  - [x] **Integration Test for SSE Endpoint:** Write a `Pytest` integration test to verify the streaming logic.
   - [ ] **Frontend HTMX Integration:** Wire up the message form to the SSE endpoint to render the streamed response.
   - [ ] **Implement Conversation Creation Logic:** Generate a topic from the first user message.
   - [ ] **Implement Message Persistence:** Save the user message and the full AI response to the database after the stream completes.
