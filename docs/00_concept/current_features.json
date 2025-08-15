@@ -1,0 +1,262 @@
+{
+  "user_interface_interactions": [
+    {
+      "feature_name": "Toggle Right Settings Sidebar",
+      "trigger": "Clicking the gear icon in the top-right corner.",
+      "behavior": "Toggles the visibility of the right settings sidebar. If Zen Mode is active, it deactivates Zen Mode and then shows the sidebar.",
+      "visual_audio_feedback": "The gear icon button might show a focus ring. The right sidebar slides into view from the right edge of the screen. An overlay appears behind the sidebar.",
+      "context": "Always available in the top-right corner of the viewport.",
+      "dependencies": "`rightSidebarOpen` and `zenMode` state variables."
+    },
+    {
+      "feature_name": "Close Right Settings Sidebar",
+      "trigger": "Clicking the 'X' icon inside the right sidebar header.",
+      "behavior": "Hides the right settings sidebar.",
+      "visual_audio_feedback": "The sidebar slides out of view to the right. The overlay disappears.",
+      "context": "Available only when the right sidebar is open.",
+      "dependencies": "`rightSidebarOpen` state variable."
+    },
+    {
+      "feature_name": "Toggle Left Chat History Sidebar (Mobile/Tablet)",
+      "trigger": "Clicking the hamburger menu icon in the main content header.",
+      "behavior": "Toggles the visibility of the left sidebar.",
+      "visual_audio_feedback": "The left sidebar slides into view from the left. An overlay appears.",
+      "context": "The hamburger icon is only visible on screen widths less than 1024px (`lg:hidden`) and when not in Zen Mode.",
+      "dependencies": "`leftSidebarOpen` state variable, window width."
+    },
+    {
+      "feature_name": "Dismiss Sidebars via Overlay",
+      "trigger": "Clicking the semi-transparent black overlay.",
+      "behavior": "Closes both the left and right sidebars if they are open.",
+      "visual_audio_feedback": "The overlay and the active sidebar disappear.",
+      "context": "The overlay is visible whenever either sidebar is open on a small screen (for the left sidebar) or at any screen size (for the right sidebar).",
+      "dependencies": "`leftSidebarOpen`, `rightSidebarOpen` state variables."
+    },
+    {
+      "feature_name": "Auto-Expanding Message Input",
+      "trigger": "Typing text into the message `textarea`.",
+      "behavior": "The `textarea`'s height automatically adjusts to fit the content, up to a maximum height of `max-h-48`.",
+      "visual_audio_feedback": "The `textarea` and the footer containing it grow vertically.",
+      "context": "Available in the message input footer at the bottom of the screen.",
+      "dependencies": "`oninput` JavaScript event."
+    },
+    {
+      "feature_name": "Send Message",
+      "trigger": "Clicking the send button (up-arrow icon) in the message input area.",
+      "behavior": "(No action is wired in the mockup) Intended to send the content of the `textarea`.",
+      "visual_audio_feedback": "The button changes color on hover. The color is theme-dependent (`indigo` for Pro, `cyan` for Flash).",
+      "context": "Always visible next to the message `textarea`.",
+      "dependencies": "`activeTheme` computed property."
+    },
+    {
+      "feature_name": "Toggle API Key Visibility",
+      "trigger": "Clicking the eye/slashed-eye icon inside the API key input field.",
+      "behavior": "Toggles the input field's type between `password` and `text`.",
+      "visual_audio_feedback": "The icon changes from an eye to a slashed eye, and the text in the input field becomes visible or is masked by dots.",
+      "context": "Inside the right settings sidebar, within the \"Gemini API Key\" panel.",
+      "dependencies": "`showApiKey` state variable."
+    },
+    {
+      "feature_name": "Save API Key",
+      "trigger": "Clicking the \"Save\" button in the API Key panel.",
+      "behavior": "Checks if the `apiKey` input is not empty/whitespace. If valid, it logs the key to the console and shows a success `alert`. If invalid, it shows an error `alert`.",
+      "visual_audio_feedback": "A browser `alert` box appears. The button has a hover effect.",
+      "context": "Inside the right settings sidebar.",
+      "dependencies": "`apiKey` state variable."
+    },
+    {
+      "feature_name": "Clear API Key",
+      "trigger": "Clicking the \"Clear\" button in the API Key panel.",
+      "behavior": "Resets the `apiKey` state variable to an empty string and logs the action to the console.",
+      "visual_audio_feedback": "The text in the API key input field is cleared. The button has a hover effect.",
+      "context": "Inside the right settings sidebar.",
+      "dependencies": "`apiKey` state variable."
+    },
+    {
+      "feature_name": "Toggle Zen Mode Switch",
+      "trigger": "Clicking the toggle switch next to the \"Zen Mode\" label.",
+      "behavior": "Toggles the `zenMode` boolean state.",
+      "visual_audio_feedback": "The switch background color changes (gray to green) and the inner circle slides from left to right, providing a clear visual state change.",
+      "context": "Inside the right settings sidebar.",
+      "dependencies": "`zenMode` state variable."
+    },
+    {
+      "feature_name": "Select Chat Model",
+      "trigger": "Clicking on the radio button or label for \"Gemini Pro\" or \"Gemini Flash\".",
+      "behavior": "Updates the `selectedModel` state to either 'pro' or 'flash'. This triggers a theme change across the entire application.",
+      "visual_audio_feedback": "The radio button becomes selected. The entire UI color scheme (header icon/text, message bubbles, buttons, focus rings) updates instantly.",
+      "context": "Inside the right settings sidebar.",
+      "dependencies": "`selectedModel` state variable, `activeTheme` computed property."
+    }
+  ],
+  "navigation_and_routing": [
+    {
+      "feature_name": "Left Sidebar Navigation Links",
+      "trigger": "Clicking \"New Chat\" or \"Logout\".",
+      "behavior": "Navigates to `href=\"#\"`. In a real app, this would trigger a route change or specific action (e.g., clearing the chat, logging the user out).",
+      "visual_audio_feedback": "The link area changes background color on hover. The \"New Chat\" link has a persistent active-like background color.",
+      "context": "Inside the left sidebar.",
+      "dependencies": "None."
+    }
+  ],
+  "data_management": [
+    {
+      "feature_name": "API Key State Management",
+      "trigger": "User input in the API key field.",
+      "behavior": "The `apiKey` state variable is updated in real-time as the user types, thanks to `x-model`.",
+      "visual_audio_feedback": "Text appears in the input field.",
+      "context": "In the right settings sidebar.",
+      "dependencies": "`apiKey` state variable."
+    }
+  ],
+  "database_interactions": [
+    {
+      "feature_name": "Simulated API Key Persistence",
+      "trigger": "Clicking the \"Save\" button for the API key.",
+      "behavior": "Logs the API key to the browser's developer console with the message \"API Key saved:\". This simulates saving the key to a persistent store.",
+      "visual_audio_feedback": "A success `alert` is shown.",
+      "context": "In the right settings sidebar.",
+      "dependencies": "`saveApiKey()` function."
+    }
+  ],
+  "authentication_and_authorization": [
+    {
+      "feature_name": "API Key Configuration",
+      "trigger": "User enters and saves an API key.",
+      "behavior": "Provides the primary mechanism for authenticating with the backend Gemini service. The application stores this key in its state for future use.",
+      "visual_audio_feedback": "The key is stored and masked in the input field by default.",
+      "context": "The \"Gemini API Key\" panel in the settings sidebar.",
+      "dependencies": "`apiKey` state variable, `saveApiKey()` function."
+    }
+  ],
+  "visual_and_animation": [
+    {
+      "feature_name": "Dynamic Theme Switching",
+      "trigger": "Changing the selected model (\"Pro\" vs. \"Flash\").",
+      "behavior": "The `activeTheme` computed property changes, which dynamically updates CSS classes for multiple elements across the app.",
+      "visual_audio_feedback": "Accent colors, background colors/gradients, message bubble styles, and button colors all change instantly with a smooth `transition-all` effect.",
+      "context": "Triggered from the model selection in the right sidebar, but affects the entire application.",
+      "dependencies": "`selectedModel` state, `activeTheme` computed property, `:class` bindings."
+    },
+    {
+      "feature_name": "Zen Mode UI Transformation",
+      "trigger": "Toggling the \"Zen Mode\" switch.",
+      "behavior": "The `zenMode` state change conditionally hides the left sidebar and the main header using `x-show=\"!zenMode\"`. It also adds rounded corners to the top of the input footer.",
+      "visual_audio_feedback": "The left sidebar and header slide/fade out of view, creating a minimal, focused interface. The input area visually docks to the top of its container.",
+      "context": "Global UI state.",
+      "dependencies": "`zenMode` state variable."
+    },
+    {
+      "feature_name": "Sidebar & Overlay Transitions",
+      "trigger": "Opening or closing any sidebar.",
+      "behavior": "The sidebars use `transition-all` and `-translate-x-full` or `translate-x-full` classes to slide in and out of view smoothly. The overlay uses `x-transition.opacity.300ms` to fade in and out.",
+      "visual_audio_feedback": "Smooth sliding animation for sidebars and a fade effect for the overlay.",
+      "context": "When toggling sidebars.",
+      "dependencies": "`leftSidebarOpen`, `rightSidebarOpen` state variables, AlpineJS `x-transition`."
+    },
+    {
+      "feature_name": "Dynamic Focus Ring Color",
+      "trigger": "Tabbing to or clicking in the message `textarea`.",
+      "behavior": "A colored focus ring appears around the `textarea`. The color of the ring is determined by the active theme.",
+      "visual_audio_feedback": "A 2px ring appears. It is `indigo` for the Pro theme and `cyan` for the Flash theme.",
+      "context": "In the message input area.",
+      "dependencies": "`activeTheme` computed property, `:class` binding on the `textarea`."
+    }
+  ],
+  "responsive_and_accessibility": [
+    {
+      "feature_name": "Responsive Sidebar Behavior",
+      "trigger": "Window resizing across the 1024px breakpoint.",
+      "behavior": "Below 1024px, the left sidebar is a hidden overlay toggled by a hamburger menu. Above 1024px (`lg:`), it becomes a static, visible part of the layout.",
+      "visual_audio_feedback": "The layout reflows, and the hamburger menu appears or disappears.",
+      "context": "Global layout.",
+      "dependencies": "Tailwind CSS responsive prefixes (`lg:`), `@resize.window` AlpineJS listener."
+    },
+    {
+      "feature_name": "Automatic Sidebar Opening on Resize",
+      "trigger": "The browser window is resized to be wider than 1024px.",
+      "behavior": "The `leftSidebarOpen` state is automatically set to `true`.",
+      "visual_audio_feedback": "If the sidebar was closed on a large screen, it will slide back into view.",
+      "context": "Global.",
+      "dependencies": "`@resize.window` AlpineJS listener."
+    },
+    {
+      "feature_name": "Accessible Button Titles",
+      "trigger": "Hovering over certain icon-only buttons.",
+      "behavior": "A native browser tooltip appears with descriptive text.",
+      "visual_audio_feedback": "A small text box with text like \"Toggle Settings\", \"Open sidebar\", \"Send message\", etc.",
+      "context": "On the gear, hamburger, send, and API key visibility buttons.",
+      "dependencies": "`title` HTML attribute."
+    }
+  ],
+  "error_handling": [
+    {
+      "feature_name": "Blank API Key Submission Error",
+      "trigger": "Clicking \"Save\" when the API key input is empty or contains only whitespace.",
+      "behavior": "The `saveApiKey` function logic prevents saving and triggers a browser `alert`.",
+      "visual_audio_feedback": "An `alert` dialog box appears with the message \"Please enter a valid API key\".",
+      "context": "In the right settings sidebar.",
+      "dependencies": "`saveApiKey()` function."
+    }
+  ],
+  "performance_and_loading": [
+    {
+      "feature_name": "Prevention of \"Flash of Unstyled Content\" (FOUC)",
+      "trigger": "Initial page load.",
+      "behavior": "Elements managed by Alpine.js are initially hidden by the `[x-cloak]` attribute and its corresponding CSS rule (`display: none !important;`). Alpine.js removes this attribute once it has initialized.",
+      "visual_audio_feedback": "The page appears fully styled and functional from the start, without a brief flash of raw HTML elements.",
+      "context": "Applied to all elements that have conditional rendering or initialization logic.",
+      "dependencies": "`x-cloak` attribute, Alpine.js initialization lifecycle."
+    }
+  ],
+  "integration_and_external_services": [
+    {
+      "feature_name": "External CDN Asset Loading",
+      "trigger": "Page load.",
+      "behavior": "The application loads its core dependencies (Tailwind CSS, Alpine.js) from a Content Delivery Network (CDN).",
+      "visual_audio_feedback": "None, this is a background process.",
+      "context": "In the `<head>` of the HTML document.",
+      "dependencies": "Network connectivity to `cdn.tailwindcss.com` and `cdn.jsdelivr.net`."
+    }
+  ],
+  "notifications_and_messaging": [
+    {
+      "feature_name": "Action Confirmation/Error Alerts",
+      "trigger": "Saving or attempting to save an API key.",
+      "behavior": "The application uses the native browser `alert()` function to provide immediate, blocking feedback to the user.",
+      "visual_audio_feedback": "A system-native dialog box appears with a message.",
+      "context": "In the API Key panel.",
+      "dependencies": "`saveApiKey()` function."
+    }
+  ],
+  "customization_and_preferences": [
+    {
+      "feature_name": "Model Preference",
+      "trigger": "Selecting a model radio button.",
+      "behavior": "The user's choice of model (`pro` or `flash`) is stored in the `selectedModel` state. This choice persists for the session and dictates the application's theme.",
+      "visual_audio_feedback": "The selected radio button is checked, and the UI theme changes.",
+      "context": "In the right settings sidebar.",
+      "dependencies": "`selectedModel` state variable."
+    },
+    {
+      "feature_name": "UI Mode Preference (Zen Mode)",
+      "trigger": "Toggling the Zen Mode switch.",
+      "behavior": "The user's preference for a minimal UI is stored in the `zenMode` state, persisting for the session.",
+      "visual_audio_feedback": "The UI transforms to hide non-essential elements.",
+      "context": "In the right settings sidebar.",
+      "dependencies": "`zenMode` state variable."
+    }
+  ],
+  "search_and_discovery": [],
+  "workflow_and_process_management": [],
+  "advanced_and_hidden_features": [
+    {
+      "feature_name": "Developer Console Logging",
+      "trigger": "Clicking \"Save\" or \"Clear\" in the API Key panel.",
+      "behavior": "Status messages (\"API Key saved:\", \"API Key cleared\") are logged to the browser's developer console.",
+      "visual_audio_feedback": "Text appears in the developer console, which is not visible to a typical user.",
+      "context": "Hidden feature for debugging or development.",
+      "dependencies": "`console.log()` calls in the `saveApiKey` and `clearApiKey` functions."
+    }
+  ]
+}
