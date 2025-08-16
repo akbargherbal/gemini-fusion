@@ -18,8 +18,12 @@ def get_session():
     Yields a database session to be used in a request.
     Ensures the session is always closed after the request.
     """
+    print("[DIAGNOSTIC] Creating database session.")
     with Session(engine) as session:
-        yield session
+        try:
+            yield session
+        finally:
+            print("[DIAGNOSTIC] Closing database session.")
 
 
 @router.get("/api/conversations", response_model=list[ConversationRead])

@@ -4,53 +4,114 @@ from sse_starlette.sse import EventSourceResponse
 import asyncio
 
 # Import the dependency and models/schemas
+from db.database import engine  # <-- Import the engine directly
 from db.models import Conversation, Message
 from routers.conversations import get_session
 from schemas.chat import ChatRequest
 
-# Import the new Gemini service
-from services.gemini_service import stream_gemini_response
+# Import the ASYNC Gemini service
+from services.gemini_service import async_stream_gemini_response
 
 # Create an API router for chat-related endpoints
 router = APIRouter()
 
 
+# --- START: Synchronous Helper Functions for DB Operations ---
+
+
+def prepare_conversation_and_save_user_message(
+    session: Session, request: ChatRequest
+) -> Conversation | None:
+    """
+    Synchronous, blocking function to handle all initial DB operations.
+    This can be safely run in a thread pool.
+    """
+    conversation = None
+    if request.conversation_id:
+        conversation = session.get(Conversation, request.conversation_id)
+        if not conversation:
+            return None
+    else:
+        topic = request.message[:50]
+        conversation = Conversation(topic=topic)
+        session.add(conversation)
+        session.commit()
+        session.refresh(conversation)
+
+    user_message = Message(
+        content=request.message, role="user", conversation_id=conversation.id
+    )
+    session.add(user_message)
+    session.commit()
+    session.refresh(conversation)
+    print(f"[INFO] User message for conversation {conversation.id} saved.")
+    return conversation
+
+
+def save_ai_message(conversation_id: int, content: str):
+    """
+    Synchronous, blocking function that creates its OWN session to save the AI's message.
+    This is safe to run in a background thread.
+    """
+    if not content:
+        return
+
+    # Create a new, independent session for this background task
+    with Session(engine) as session:
+        ai_message = Message(
+            content=content.strip(), role="ai", conversation_id=conversation_id
+        )
+        session.add(ai_message)
+        session.commit()
+        print(f"[INFO] AI message for conversation {conversation_id} saved.")
+
+
+# --- END: Synchronous Helper Functions ---
+
+
 @router.post("/api/chat/stream")
 async def chat_stream(request: ChatRequest, session: Session = Depends(get_session)):
     """
-    Handles the streaming chat endpoint.
-    Receives a message, calls the Gemini service, and streams the response back.
+    Handles the streaming chat endpoint using proper concurrency for blocking calls.
     """
-    # NOTE: Database logic for saving messages will be added in a future step
-    # as per the project plan. This endpoint currently only handles the streaming.
+    model_to_use = "gemini-1.5-flash-latest"
+
+    # Run the initial blocking DB operations in a separate thread
+    conversation = await asyncio.to_thread(
+        prepare_conversation_and_save_user_message, session, request
+    )
+
+    if not conversation:
+        raise HTTPException(status_code=404, detail="Conversation not found.")
 
     async def event_generator():
-        """A generator function that yields SSE events."""
+        """
+        A generator that streams the AI response and saves the result in the background.
+        """
+        full_ai_response = ""
         try:
-            # Call our synchronous service function that yields response chunks
-            response_stream = stream_gemini_response(
+            response_stream = async_stream_gemini_response(
                 api_key=request.api_key,
-                model_name="gemini-pro",  # Placeholder, will be dynamic later
+                model_name=model_to_use,
                 message=request.message,
             )
 
-            # Iterate over the synchronous generator from the service
-            for chunk in response_stream:
-                # In an async context, it's good practice to yield control
-                # briefly to the event loop, especially in a tight loop.
-                await asyncio.sleep(0)
-                # Yield the data in the format SSE expects: a dictionary.
-                yield {"data": chunk}
+            async for chunk in response_stream:
+                if chunk:
+                    full_ai_response += chunk
+                    yield {"data": chunk}
 
-            # After the stream is complete, send a special DONE message
+            # Run the final save operation in a thread.
+            # This function now creates its own session, so we don't pass the expired one.
+            await asyncio.to_thread(save_ai_message, conversation.id, full_ai_response)
+
             yield {"data": "[DONE]"}
 
         except HTTPException as e:
-            # If our service raises an HTTPException (e.g., for a bad API key),
-            # we can catch it and yield an error event to the client.
+            print(f"[ERROR] HTTPException in stream: {e.detail}")
             yield {"event": "error", "data": e.detail}
-        except Exception:
-            # For any other unexpected errors.
+        except Exception as e:
+            print(f"[ERROR] Unexpected Exception in stream: {e}")
             yield {
                 "event": "error",
                 "data": "An unexpected error occurred on the server.",
@@ -63,35 +124,9 @@ async def chat_stream(request: ChatRequest, session: Session = Depends(get_sessi
 def chat_sync(request: ChatRequest, session: Session = Depends(get_session)):
     """
     Temporary synchronous endpoint to test conversation and message creation.
-    Accepts a message, saves it, and returns a hardcoded JSON response.
     """
-    # Step 1: Find the conversation or create a new one
-    conversation = None
-    if request.conversation_id:
-        conversation = session.get(Conversation, request.conversation_id)
-        if not conversation:
-            raise HTTPException(
-                status_code=404,
-                detail=f"Conversation with id {request.conversation_id} not found.",
-            )
-    else:
-        # Create a new conversation
-        # Topic is the first 50 chars of the user's message
-        topic = request.message[:50]
-        conversation = Conversation(topic=topic)
-        session.add(conversation)
-        # We need to commit here to get the conversation.id for the message
-        session.commit()
-        session.refresh(conversation)
+    conversation = prepare_conversation_and_save_user_message(session, request)
+    if not conversation:
+        raise HTTPException(status_code=404, detail="Conversation not found.")
 
-    # Step 2: Create the user's message and link it to the conversation
-    user_message = Message(
-        content=request.message, role="user", conversation_id=conversation.id
-    )
-
-    # Step 3: Add the message to the session and commit
-    session.add(user_message)
-    session.commit()
-
-    # Step 4: Return a simple confirmation response
     return {"status": "success", "message": "Message received and saved."}

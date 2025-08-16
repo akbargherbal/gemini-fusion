@@ -7,33 +7,21 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-def stream_gemini_response(api_key: str, model_name: str, message: str):
+async def async_stream_gemini_response(api_key: str, model_name: str, message: str):
     """
-    Initializes the Gemini client and streams the response from the model.
-
-    Args:
-        api_key: The user-provided Google API key.
-        model_name: The name of the model to use (e.g., 'gemini-pro').
-        message: The user's message content.
-
-    Yields:
-        str: Chunks of the response text from the Gemini API.
-
-    Raises:
-        HTTPException: If there is an authentication or permission issue with the API key.
-        HTTPException: For other unexpected errors during the API call.
+    Initializes the Gemini client and streams the response from the model asynchronously.
+    This is a native async generator.
     """
     try:
         # Configure the generative AI client with the provided API key
         genai.configure(api_key=api_key)
         model = genai.GenerativeModel(model_name)
 
-        # Start generating content with streaming enabled
-        # The empty history is for starting a new, non-conversational chat
-        response_stream = model.generate_content(message, stream=True)
+        # Use the asynchronous version of the method to get an async stream
+        response_stream = await model.generate_content_async(message, stream=True)
 
-        # Yield each chunk of text from the stream
-        for chunk in response_stream:
+        # Asynchronously iterate over the stream and yield each chunk
+        async for chunk in response_stream:
             # The API might send empty chunks or chunks without text.
             if chunk.text:
                 yield chunk.text

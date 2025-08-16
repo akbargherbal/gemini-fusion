@@ -1,6 +1,8 @@
+### **`PROJECT_TRACKER.md` (Updated)**
+
 # Gemini Fusion - Project Tracker v0.1.0
 
-**Last Updated:** 2025-08-16 (End of Session 2)
+**Last Updated:** 2025-08-16 (End of Session 3)
 
 ### **1. Governance and Change Control**
 
@@ -20,9 +22,9 @@ This ensures that our project's "law" and its "enforcement" remain in perfect al
 
 ### **2. High-Level Status**
 
-- **Overall Progress:** 60%
+- **Overall Progress:** 75%
 - **Current Milestone:** Milestone 2: The Core Chat Loop
-- **Focus for Next Session:** Begin frontend development by connecting the UI to our new streaming API endpoint.
+- **Focus for Next Session:** Implement database persistence for conversations.
 
 ---
 
@@ -49,7 +51,7 @@ This ensures that our project's "law" and its "enforcement" remain in perfect al
   - [x] **Unit Test Gemini Service:** Write a `Pytest` unit test for the service, mocking the external API call.
   - [x] **Implement SSE Streaming Endpoint:** In `routers/chat.py`, create the `POST /api/chat/stream` endpoint using `EventSourceResponse`.
   - [x] **Integration Test for SSE Endpoint:** Write a `Pytest` integration test to verify the streaming logic.
-  - [ ] **Frontend HTMX Integration:** Wire up the message form to the SSE endpoint to render the streamed response.
+  - [x] **Frontend HTMX Integration:** Wire up the message form to the SSE endpoint to render the streamed response.
   - [ ] **Implement Conversation Creation Logic:** Generate a topic from the first user message.
   - [ ] **Implement Message Persistence:** Save the user message and the full AI response to the database after the stream completes.
   - [ ] **Integration Test for Core Loop:** Write a test to verify the entire chat and persistence flow.
@@ -63,3 +65,5 @@ This ensures that our project's "law" and its "enforcement" remain in perfect al
   - [ ] **Backend Error Handling:** Implement `try...except` blocks for Gemini API calls and return proper `HTTPException`s.
   - [ ] **Frontend Error Handling:** Add frontend logic to display an `alert()` on stream failures.
   - [ ] **Final Polish & Verification:** Conduct a full manual test against the MVP Success Criteria.
+
+---
