@@ -7,7 +7,7 @@ from fastapi import HTTPException
 from services.gemini_service import async_stream_gemini_response
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_async_stream_gemini_response_success():
     """
     Tests the 'happy path' where the API call is successful and streams chunks asynchronously.
@@ -66,7 +66,7 @@ async def test_async_stream_gemini_response_success():
         assert result == ["Hello", ", ", "World!"]
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_async_stream_gemini_response_invalid_key():
     """
     Tests the failure path where the API key is invalid, raising an exception.

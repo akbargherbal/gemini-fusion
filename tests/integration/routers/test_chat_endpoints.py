@@ -36,22 +36,21 @@ def test_initiate_chat_success(client: TestClient, session: Session):
     assert db_conversation.messages[0].role == "user"
 
 
-async def mock_successful_stream():
-    """A mock async generator for a successful stream."""
+# This is the NEW, corrected code
+async def mock_successful_stream(*args, **kwargs):
+    """A mock async generator for a successful stream that accepts any arguments."""
     yield "This "
     yield "is a test."
 
 
-async def mock_failing_stream():
-    """A mock async generator that simulates an API key error."""
-    # This is a bit of a trick: the generator must exist, but the exception
-    # is what we're testing, so it doesn't need to yield anything.
+async def mock_failing_stream(*args, **kwargs):
+    """A mock async generator that simulates an API key error and accepts any arguments."""
     if False:
         yield
     raise HTTPException(status_code=401, detail="Invalid API Key.")
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_stream_chat_success(client: TestClient, session: Session):
     """
     Tests the GET /api/chat/stream/{session_id} endpoint for a successful stream.
@@ -78,7 +77,7 @@ async def test_stream_chat_success(client: TestClient, session: Session):
     assert "event: stream_complete\ndata: [DONE]\n\n" in content
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_stream_chat_api_key_error(client: TestClient, session: Session):
     """
     Tests the GET /api/chat/stream/{session_id} endpoint for a 401 error.
