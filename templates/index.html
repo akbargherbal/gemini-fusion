@@ -49,68 +49,193 @@
       .dark .prose pre { background-color: #374151; }
       .dark .prose a { color: #818cf8; }
     </style>
+    <script>
+      function appData() {
+        return {
+          leftSidebarOpen: window.innerWidth > 1024,
+          rightSidebarOpen: false,
+          selectedModel: 'pro',
+          zenMode: false,
+          apiKey: '',
+          showApiKey: false,
+          isSending: false,
+          activeAiMessageId: null,
+          sseSource: null,
+
+          proTheme: { 
+            name: 'pro', 
+            icon: '💎', 
+            accentColor: 'indigo', 
+            chatBg: 'bg-gray-100 dark:bg-gray-900', 
+            aiMessageBg: 'bg-white dark:bg-gray-800', 
+            userMessageBg: 'bg-indigo-600', 
+            sendButtonBg: 'bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400', 
+            radioRing: 'focus:ring-indigo-500 text-indigo-600' 
+          },
+          flashTheme: { 
+            name: 'flash', 
+            icon: '⚡️', 
+            accentColor: 'cyan', 
+            chatBg: 'bg-gradient-to-br from-white to-cyan-50 dark:from-gray-900 dark:to-teal-900/40', 
+            aiMessageBg: 'bg-white dark:bg-gray-800 border-l-4 border-cyan-400 shadow-lg', 
+            userMessageBg: 'bg-cyan-600', 
+            sendButtonBg: 'bg-cyan-600 hover:bg-cyan-700 disabled:bg-cyan-400', 
+            radioRing: 'focus:ring-cyan-500 text-cyan-500' 
+          },
+          
+          get activeTheme() { 
+            return this.selectedModel === 'pro' ? this.proTheme : this.flashTheme; 
+          },
+          
+          saveApiKey() { 
+            if (this.apiKey.trim()) { 
+              alert('API Key saved successfully!'); 
+            } else { 
+              alert('Please enter a valid API key'); 
+            } 
+          },
+          
+          clearApiKey() { 
+            this.apiKey = ''; 
+          },
+
+          async prepareForSending(event) {
+            if (event.target !== this.$refs.chatForm) return;
+            const messageText = this.$refs.chatInput.value.trim();
+            if (!messageText) { return; }
+            if (!this.apiKey.trim()) { 
+              alert('Please enter your Gemini API key in the settings first.'); 
+              return; 
+            }
+            
+            // Clear the input and reset its height
+            this.$refs.chatInput.value = '';
+            this.$refs.chatInput.style.height = 'auto';
+            
+            const chatContainer = document.getElementById('chat-container');
+            const userMessageHtml = `<div class='flex items-start justify-end'><div class='max-w-lg p-4 mr-4 text-white rounded-lg shadow-md bg-${this.activeTheme.userMessageBg}'><p class='text-sm'>${messageText.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p></div><div class='flex items-center justify-center flex-shrink-0 w-10 h-10 font-bold bg-gray-300 rounded-full dark:bg-gray-700'>U</div></div>`;
+            chatContainer.insertAdjacentHTML('beforeend', userMessageHtml);
+            this.activeAiMessageId = 'ai-msg-' + Date.now();
+            const aiPlaceholderHtml = `<div class='flex items-start'><div class='flex items-center justify-center flex-shrink-0 w-10 h-10 font-bold text-white transition-all rounded-full bg-${this.activeTheme.accentColor}-500'>AI</div><div id='${this.activeAiMessageId}' class='w-full max-w-lg p-4 ml-4 prose-sm prose transition-all rounded-lg dark:prose-invert ${this.activeTheme.aiMessageBg}'><span class='blinking-cursor'></span></div></div>`;
+            chatContainer.insertAdjacentHTML('beforeend', aiPlaceholderHtml);
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+            
+            // Phase 1: Initiate the chat
+            try {
+              const response = await fetch('/api/chat/initiate', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  message: messageText,
+                  api_key: this.apiKey
+                })
+              });
+              
+              if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+              }
+              
+              const data = await response.json();
+              console.log('[INFO] Chat initiated with session:', data.session_id);
+              
+              // Phase 2: Establish SSE connection
+              this.startSseConnection(data.session_id);
+              
+            } catch (error) {
+              console.error('[ERROR] Failed to initiate chat:', error);
+              const targetDiv = document.getElementById(this.activeAiMessageId);
+              if (targetDiv) {
+                targetDiv.innerHTML = '<p class="text-red-500">Error: Failed to send message. Please try again.</p>';
+              }
+              this.isSending = false;
+            }
+          },
+
+          startSseConnection(sessionId) {
+            console.log('[INFO] Starting SSE connection for session:', sessionId);
+            
+            // Close any existing SSE connection
+            if (this.sseSource) {
+              this.sseSource.close();
+            }
+            
+            this.sseSource = new EventSource(`/api/chat/stream/${sessionId}`);
+            
+            this.sseSource.addEventListener('stream_start', (event) => {
+              console.log('[DEBUG] Stream started');
+            });
+            
+            this.sseSource.addEventListener('message', (event) => {
+              console.log('[DEBUG] Message received:', event.data);
+              this.handleStreamMessage(event.data);
+            });
+            
+            this.sseSource.addEventListener('stream_complete', (event) => {
+              console.log('[DEBUG] Stream completed');
+              this.handleStreamComplete();
+            });
+            
+            this.sseSource.addEventListener('error', (event) => {
+              console.error('[ERROR] SSE error:', event);
+              this.handleStreamError('Connection error occurred');
+            });
+            
+            this.sseSource.onerror = (event) => {
+              console.error('[ERROR] SSE connection error:', event);
+              this.handleStreamError('Failed to connect to streaming service');
+            };
+          },
+
+          handleStreamMessage(data) {
+            if (!this.activeAiMessageId) return;
+            const targetDiv = document.getElementById(this.activeAiMessageId);
+            if (!targetDiv) return;
+            
+            const cursor = targetDiv.querySelector('.blinking-cursor');
+            if (cursor) cursor.remove();
+            
+            const textToAdd = data.replace(/\\n/g, '<br>');
+            targetDiv.innerHTML += textToAdd;
+          },
+
+          handleStreamComplete() {
+            this.activeAiMessageId = null;
+            this.isSending = false;
+            if (this.sseSource) {
+              this.sseSource.close();
+              this.sseSource = null;
+            }
+          },
+
+          handleStreamError(errorMessage) {
+            if (this.activeAiMessageId) {
+              const targetDiv = document.getElementById(this.activeAiMessageId);
+              if (targetDiv) {
+                const cursor = targetDiv.querySelector('.blinking-cursor');
+                if (cursor) cursor.remove();
+                targetDiv.innerHTML = `<p class="text-red-500">Error: ${errorMessage}</p>`;
+              }
+            }
+            this.activeAiMessageId = null;
+            this.isSending = false;
+            if (this.sseSource) {
+              this.sseSource.close();
+              this.sseSource = null;
+            }
+          }
+        };
+      }
+    </script>
   </head>
   <body
     class="font-sans text-gray-900 bg-gray-100 dark:bg-gray-900 dark:text-gray-100"
   >
     <div
-      x-data="{
-            leftSidebarOpen: window.innerWidth > 1024,
-            rightSidebarOpen: false,
-            selectedModel: 'pro',
-            zenMode: false,
-            apiKey: '',
-            showApiKey: false,
-            isSending: false,
-            activeAiMessageId: null,
-
-            proTheme: { name: 'pro', icon: '💎', accentColor: 'indigo', chatBg: 'bg-gray-100 dark:bg-gray-900', aiMessageBg: 'bg-white dark:bg-gray-800', userMessageBg: 'bg-indigo-600', sendButtonBg: 'bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400', radioRing: 'focus:ring-indigo-500 text-indigo-600' },
-            flashTheme: { name: 'flash', icon: '⚡️', accentColor: 'cyan', chatBg: 'bg-gradient-to-br from-white to-cyan-50 dark:from-gray-900 dark:to-teal-900/40', aiMessageBg: 'bg-white dark:bg-gray-800 border-l-4 border-cyan-400 shadow-lg', userMessageBg: 'bg-cyan-600', sendButtonBg: 'bg-cyan-600 hover:bg-cyan-700 disabled:bg-cyan-400', radioRing: 'focus:ring-cyan-500 text-cyan-500' },
-            get activeTheme() { return this.selectedModel === 'pro' ? this.proTheme : this.flashTheme; },
-            saveApiKey() { if (this.apiKey.trim()) { alert('API Key saved successfully!'); } else { alert('Please enter a valid API key'); } },
-            clearApiKey() { this.apiKey = ''; },
-
-            prepareForSending(event) {
-                if (event.detail.elt !== this.$refs.chatForm) return;
-                const messageText = this.$refs.chatInput.value.trim();
-                if (!messageText) { event.preventDefault(); return; }
-                if (!this.apiKey.trim()) { alert('Please enter your Gemini API key in the settings first.'); event.preventDefault(); return; }
-                const chatContainer = document.getElementById('chat-container');
-                const userMessageHtml = `<div class='flex items-start justify-end'><div class='max-w-lg p-4 mr-4 text-white rounded-lg shadow-md' :class='activeTheme.userMessageBg'><p class='text-sm'>${messageText.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p></div><div class='flex items-center justify-center flex-shrink-0 w-10 h-10 font-bold bg-gray-300 rounded-full dark:bg-gray-700'>U</div></div>`;
-                chatContainer.insertAdjacentHTML('beforeend', userMessageHtml);
-                this.activeAiMessageId = 'ai-msg-' + Date.now();
-                const aiPlaceholderHtml = `<div class='flex items-start'><div class='flex items-center justify-center flex-shrink-0 w-10 h-10 font-bold text-white transition-all rounded-full' :class='\`bg-\${activeTheme.accentColor}-500\`'>AI</div><div id='${this.activeAiMessageId}' class='w-full max-w-lg p-4 ml-4 prose-sm prose transition-all rounded-lg dark:prose-invert' :class='activeTheme.aiMessageBg'><span class='blinking-cursor'></span></div></div>`;
-                chatContainer.insertAdjacentHTML('beforeend', aiPlaceholderHtml);
-                chatContainer.scrollTop = chatContainer.scrollHeight;
-            },
-
-            cleanupAfterSending(event) {
-                if (event.detail.elt === this.$refs.chatForm) {
-                    this.$refs.chatInput.value = '';
-                    this.$refs.chatInput.style.height = 'auto';
-                }
-            },
-
-            handleSseMessage(event) {
-                console.log('[DIAGNOSTIC] handleSseMessage triggered. Event detail:', event.detail);
-                if (!this.activeAiMessageId) { return; }
-                const targetDiv = document.getElementById(this.activeAiMessageId);
-                if (!targetDiv) { return; }
-                const cursor = targetDiv.querySelector('.blinking-cursor');
-                if (cursor) { cursor.remove(); }
-
-                if (event.detail.data === '[DONE]') {
-                    this.activeAiMessageId = null;
-                } else {
-                    const textToAdd = event.detail.data.replace(/\\n/g, '<br>');
-                    targetDiv.innerHTML += textToAdd;
-                }
-            }
-        }"
+      x-data="appData()"
         @resize.window="if (window.innerWidth > 1024) leftSidebarOpen = true"
-        @htmx:before-request.window="isSending = true; prepareForSending($event)"
-        @htmx:after-request.window="isSending = false; cleanupAfterSending($event)"
-        @htmx:sse-message.window="handleSseMessage($event)"
+        @submit.prevent.window="if ($event.target === $refs.chatForm) { isSending = true; prepareForSending($event); }"
         class="relative flex min-h-screen"
     >
       <!-- Persistent Gear Icon -->
@@ -139,7 +264,7 @@
 
         <footer class="flex-shrink-0 p-4 border-t md:p-6 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm dark:border-gray-700" :class="{ 'rounded-t-xl': zenMode }" >
           <div class="max-w-4xl mx-auto">
-            <form x-ref="chatForm" hx-post="/api/chat/stream" hx-ext="sse, json-enc" hx-swap="none" class="relative" >
+            <form x-ref="chatForm" class="relative" >
               <input type="hidden" name="api_key" :value="apiKey" />
               <textarea x-ref="chatInput" name="message" @keydown.enter.prevent="if (!$event.shiftKey && $el.value.trim()) { $el.closest('form').requestSubmit() }" rows="1" placeholder="Message Gemini Fusion..." class="w-full py-3 pl-4 pr-16 bg-gray-200 rounded-lg resize-none dark:bg-gray-700 focus:outline-none max-h-48" :class="`focus:ring-2 focus:ring-${activeTheme.accentColor}-500`" oninput="this.style.height = 'auto'; this.style.height = (this.scrollHeight) + 'px';" :disabled="isSending" ></textarea>
               <button type="submit" class="absolute bottom-2.5 right-2.5 flex items-center justify-center h-10 w-10 rounded-md text-white focus:outline-none transition-all" :class="activeTheme.sendButtonBg" title="Send message" :disabled="isSending" > <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" > <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18" ></path> </svg> </button>
