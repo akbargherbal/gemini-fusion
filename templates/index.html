@@ -61,6 +61,7 @@
           isSending: false,
           activeAiMessageId: null,
           sseSource: null,
+          activeConversationId: null,
 
           proTheme: { 
             name: 'pro', 
@@ -108,39 +109,32 @@
               return; 
             }
             
-            // Clear the input and reset its height
             this.$refs.chatInput.value = '';
             this.$refs.chatInput.style.height = 'auto';
             
             const chatContainer = document.getElementById('chat-container');
-            const userMessageHtml = `<div class='flex items-start justify-end'><div class='max-w-lg p-4 mr-4 text-white rounded-lg shadow-md bg-${this.activeTheme.userMessageBg}'><p class='text-sm'>${messageText.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p></div><div class='flex items-center justify-center flex-shrink-0 w-10 h-10 font-bold bg-gray-300 rounded-full dark:bg-gray-700'>U</div></div>`;
+            const userMessageHtml = `<div class='flex items-start justify-end'><div class='max-w-lg p-4 mr-4 text-white rounded-lg shadow-md ${this.activeTheme.userMessageBg}'><p class='text-sm'>${messageText.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p></div><div class='flex items-center justify-center flex-shrink-0 w-10 h-10 font-bold bg-gray-300 rounded-full dark:bg-gray-700'>U</div></div>`;
             chatContainer.insertAdjacentHTML('beforeend', userMessageHtml);
             this.activeAiMessageId = 'ai-msg-' + Date.now();
             const aiPlaceholderHtml = `<div class='flex items-start'><div class='flex items-center justify-center flex-shrink-0 w-10 h-10 font-bold text-white transition-all rounded-full bg-${this.activeTheme.accentColor}-500'>AI</div><div id='${this.activeAiMessageId}' class='w-full max-w-lg p-4 ml-4 prose-sm prose transition-all rounded-lg dark:prose-invert ${this.activeTheme.aiMessageBg}'><span class='blinking-cursor'></span></div></div>`;
             chatContainer.insertAdjacentHTML('beforeend', aiPlaceholderHtml);
             chatContainer.scrollTop = chatContainer.scrollHeight;
             
-            // Phase 1: Initiate the chat
             try {
               const response = await fetch('/api/chat/initiate', {
                 method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                },
+                headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                   message: messageText,
-                  api_key: this.apiKey
+                  api_key: this.apiKey,
+                  conversation_id: this.activeConversationId
                 })
               });
               
-              if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-              }
+              if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
               
               const data = await response.json();
-              console.log('[INFO] Chat initiated with session:', data.session_id);
-              
-              // Phase 2: Establish SSE connection
+              this.activeConversationId = data.conversation_id;
               this.startSseConnection(data.session_id);
               
             } catch (error) {
@@ -154,50 +148,20 @@
           },
 
           startSseConnection(sessionId) {
-            console.log('[INFO] Starting SSE connection for session:', sessionId);
-            
-            // Close any existing SSE connection
-            if (this.sseSource) {
-              this.sseSource.close();
-            }
-            
+            if (this.sseSource) this.sseSource.close();
             this.sseSource = new EventSource(`/api/chat/stream/${sessionId}`);
-            
-            this.sseSource.addEventListener('stream_start', (event) => {
-              console.log('[DEBUG] Stream started');
-            });
-            
-            this.sseSource.addEventListener('message', (event) => {
-              console.log('[DEBUG] Message received:', event.data);
-              this.handleStreamMessage(event.data);
-            });
-            
-            this.sseSource.addEventListener('stream_complete', (event) => {
-              console.log('[DEBUG] Stream completed');
-              this.handleStreamComplete();
-            });
-            
-            this.sseSource.addEventListener('error', (event) => {
-              console.error('[ERROR] SSE error:', event);
-              this.handleStreamError('Connection error occurred');
-            });
-            
-            this.sseSource.onerror = (event) => {
-              console.error('[ERROR] SSE connection error:', event);
-              this.handleStreamError('Failed to connect to streaming service');
-            };
+            this.sseSource.addEventListener('message', e => this.handleStreamMessage(e.data));
+            this.sseSource.addEventListener('stream_complete', () => this.handleStreamComplete());
+            this.sseSource.addEventListener('error', e => this.handleStreamError('Connection error occurred'));
+            this.sseSource.onerror = e => this.handleStreamError('Failed to connect to streaming service');
           },
 
           handleStreamMessage(data) {
-            if (!this.activeAiMessageId) return;
             const targetDiv = document.getElementById(this.activeAiMessageId);
             if (!targetDiv) return;
-            
             const cursor = targetDiv.querySelector('.blinking-cursor');
             if (cursor) cursor.remove();
-            
-            const textToAdd = data.replace(/\\n/g, '<br>');
-            targetDiv.innerHTML += textToAdd;
+            targetDiv.innerHTML += data;
           },
 
           handleStreamComplete() {
@@ -207,16 +171,14 @@
               this.sseSource.close();
               this.sseSource = null;
             }
+            // Refresh conversation list to show the new topic
+            htmx.trigger('#conversation-list', 'loadConversations');
           },
 
           handleStreamError(errorMessage) {
-            if (this.activeAiMessageId) {
-              const targetDiv = document.getElementById(this.activeAiMessageId);
-              if (targetDiv) {
-                const cursor = targetDiv.querySelector('.blinking-cursor');
-                if (cursor) cursor.remove();
-                targetDiv.innerHTML = `<p class="text-red-500">Error: ${errorMessage}</p>`;
-              }
+            const targetDiv = document.getElementById(this.activeAiMessageId);
+            if (targetDiv) {
+              targetDiv.innerHTML = `<p class="text-red-500">Error: ${errorMessage}</p>`;
             }
             this.activeAiMessageId = null;
             this.isSending = false;
@@ -224,69 +186,80 @@
               this.sseSource.close();
               this.sseSource = null;
             }
+          },
+
+          newChat() {
+            this.activeConversationId = null;
+            document.getElementById('chat-container').innerHTML = '';
+            // Visually deselect all conversations
+            document.querySelectorAll('#conversation-list a').forEach(el => el.classList.remove('bg-gray-700', 'text-white'));
+            document.getElementById('new-chat-button').classList.add('bg-gray-700', 'text-white');
           }
         };
       }
     </script>
   </head>
-  <body
-    class="font-sans text-gray-900 bg-gray-100 dark:bg-gray-900 dark:text-gray-100"
-  >
-    <div
-      x-data="appData()"
-        @resize.window="if (window.innerWidth > 1024) leftSidebarOpen = true"
-        @submit.prevent.window="if ($event.target === $refs.chatForm) { isSending = true; prepareForSending($event); }"
-        class="relative flex min-h-screen"
-    >
+  <body class="font-sans text-gray-900 bg-gray-100 dark:bg-gray-900 dark:text-gray-100">
+    <div x-data="appData()" @resize.window="if (window.innerWidth > 1024) leftSidebarOpen = true" @submit.prevent.window="if ($event.target === $refs.chatForm) { isSending = true; prepareForSending($event); }" class="relative flex min-h-screen">
+      
       <!-- Persistent Gear Icon -->
-      <div x-show="!rightSidebarOpen" class="fixed z-50 top-4 right-4">
-        <button @click="zenMode ? (zenMode = false, rightSidebarOpen = true) : rightSidebarOpen = !rightSidebarOpen" class="flex items-center justify-center w-12 h-12 text-gray-600 transition-all rounded-full shadow-lg bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm dark:text-gray-300 hover:text-gray-900 dark:hover:text-white" title="Toggle Settings" > <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" > <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924-1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.096 2.572-1.065z" ></path> <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" ></path> </svg> </button>
-      </div>
+      <div x-show="!rightSidebarOpen" class="fixed z-50 top-4 right-4"><button @click="zenMode ? (zenMode = false, rightSidebarOpen = true) : rightSidebarOpen = !rightSidebarOpen" class="flex items-center justify-center w-12 h-12 text-gray-600 transition-all rounded-full shadow-lg bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm dark:text-gray-300 hover:text-gray-900 dark:hover:text-white" title="Toggle Settings"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924-1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.096 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg></button></div>
 
       <!-- Left Sidebar -->
-      <aside x-show="!zenMode" :class="{ '-translate-x-full': !leftSidebarOpen }" class="fixed inset-y-0 left-0 z-40 flex flex-col flex-shrink-0 w-64 text-gray-300 transition-all bg-gray-800 lg:static" x-transition x-cloak >
-        <div class="flex items-center justify-between flex-shrink-0 h-16 px-4 border-b border-gray-700" > <a href="#" class="text-xl font-bold">Gemini Fusion</a> </div>
-        <div class="flex-1 overflow-y-auto"> <nav class="px-2 py-4"> <a href="#" class="flex items-center px-4 py-2 text-sm text-white bg-gray-700 rounded-md" >New Chat</a > </nav> </div>
-        <div class="flex-shrink-0 p-4 border-t border-gray-700"> <a href="#" class="flex items-center w-full px-4 py-2 text-sm rounded-md hover:bg-gray-700" >Logout</a > </div>
+      <aside x-show="!zenMode" :class="{ '-translate-x-full': !leftSidebarOpen }" class="fixed inset-y-0 left-0 z-40 flex flex-col flex-shrink-0 w-64 text-gray-300 transition-all bg-gray-800 lg:static" x-transition x-cloak>
+        <div class="flex items-center justify-between flex-shrink-0 h-16 px-4 border-b border-gray-700"><a href="#" class="text-xl font-bold">Gemini Fusion</a></div>
+        
+        <!-- Conversation List -->
+        <div class="flex-1 overflow-y-auto" hx-get="/api/conversations" hx-trigger="loadConversations from:body, load" hx-target="#conversation-list">
+          <nav class="px-2 py-4">
+            <a id="new-chat-button" href="#" @click.prevent="newChat()" class="flex items-center px-4 py-2 text-sm text-white bg-gray-700 rounded-md">New Chat</a>
+            <div id="conversation-list" class="mt-4 space-y-1">
+              <!-- Conversation items will be loaded here by HTMX -->
+            </div>
+          </nav>
+        </div>
+        
+        <div class="flex-shrink-0 p-4 border-t border-gray-700"><a href="#" class="flex items-center w-full px-4 py-2 text-sm rounded-md hover:bg-gray-700">Logout</a></div>
       </aside>
 
       <!-- Main content -->
       <div class="flex flex-col flex-1 overflow-hidden">
-        <header x-show="!zenMode" class="flex items-center justify-between flex-shrink-0 h-16 px-4 transition-all bg-white border-b dark:bg-gray-800 dark:border-gray-700" x-transition x-cloak >
-          <button @click="leftSidebarOpen = !leftSidebarOpen" class="text-gray-500 lg:hidden focus:outline-none" title="Open sidebar" > <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" > <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" ></path> </svg> </button>
-          <div class="flex items-center gap-2 text-xl font-semibold" :class="`text-${activeTheme.accentColor}-600 dark:text-${activeTheme.accentColor}-400`" > <span x-text="activeTheme.icon"></span> <span x-text="selectedModel === 'pro' ? 'Gemini Pro' : 'Gemini Flash'" ></span> </div>
+        <header x-show="!zenMode" class="flex items-center justify-between flex-shrink-0 h-16 px-4 transition-all bg-white border-b dark:bg-gray-800 dark:border-gray-700" x-transition x-cloak>
+          <button @click="leftSidebarOpen = !leftSidebarOpen" class="text-gray-500 lg:hidden focus:outline-none" title="Open sidebar"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg></button>
+          <div class="flex items-center gap-2 text-xl font-semibold" :class="`text-${activeTheme.accentColor}-600 dark:text-${activeTheme.accentColor}-400`"><span x-text="activeTheme.icon"></span> <span x-text="selectedModel === 'pro' ? 'Gemini Pro' : 'Gemini Flash'"></span></div>
           <div class="w-6"></div>
         </header>
 
-        <main class="flex-1 p-4 overflow-y-auto transition-all md:p-6" :class="activeTheme.chatBg" >
-          <div id="chat-container" class="max-w-4xl mx-auto space-y-6"></div>
+        <main class="flex-1 p-4 overflow-y-auto transition-all md:p-6" :class="activeTheme.chatBg">
+          <div id="chat-container" class="max-w-4xl mx-auto space-y-6">
+            <!-- Messages will be loaded here by HTMX -->
+          </div>
         </main>
 
-        <footer class="flex-shrink-0 p-4 border-t md:p-6 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm dark:border-gray-700" :class="{ 'rounded-t-xl': zenMode }" >
+        <footer class="flex-shrink-0 p-4 border-t md:p-6 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm dark:border-gray-700" :class="{ 'rounded-t-xl': zenMode }">
           <div class="max-w-4xl mx-auto">
-            <form x-ref="chatForm" class="relative" >
-              <input type="hidden" name="api_key" :value="apiKey" />
-              <textarea x-ref="chatInput" name="message" @keydown.enter.prevent="if (!$event.shiftKey && $el.value.trim()) { $el.closest('form').requestSubmit() }" rows="1" placeholder="Message Gemini Fusion..." class="w-full py-3 pl-4 pr-16 bg-gray-200 rounded-lg resize-none dark:bg-gray-700 focus:outline-none max-h-48" :class="`focus:ring-2 focus:ring-${activeTheme.accentColor}-500`" oninput="this.style.height = 'auto'; this.style.height = (this.scrollHeight) + 'px';" :disabled="isSending" ></textarea>
-              <button type="submit" class="absolute bottom-2.5 right-2.5 flex items-center justify-center h-10 w-10 rounded-md text-white focus:outline-none transition-all" :class="activeTheme.sendButtonBg" title="Send message" :disabled="isSending" > <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" > <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18" ></path> </svg> </button>
+            <form x-ref="chatForm" class="relative">
+              <textarea x-ref="chatInput" name="message" @keydown.enter.prevent="if (!$event.shiftKey && $el.value.trim()) { $el.closest('form').requestSubmit() }" rows="1" placeholder="Message Gemini Fusion..." class="w-full py-3 pl-4 pr-16 bg-gray-200 rounded-lg resize-none dark:bg-gray-700 focus:outline-none max-h-48" :class="`focus:ring-2 focus:ring-${activeTheme.accentColor}-500`" oninput="this.style.height = 'auto'; this.style.height = (this.scrollHeight) + 'px';" :disabled="isSending"></textarea>
+              <button type="submit" class="absolute bottom-2.5 right-2.5 flex items-center justify-center h-10 w-10 rounded-md text-white focus:outline-none transition-all" :class="activeTheme.sendButtonBg" title="Send message" :disabled="isSending"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18"></path></svg></button>
             </form>
           </div>
         </footer>
       </div>
 
       <!-- Right Sidebar -->
-      <aside class="fixed inset-y-0 right-0 z-40 flex flex-col flex-shrink-0 w-64 text-gray-300 transition-all bg-gray-800" :class="{ 'translate-x-full': !rightSidebarOpen }" x-cloak >
-        <div class="flex items-center justify-between flex-shrink-0 h-16 px-4 border-b border-gray-700" >
+      <aside class="fixed inset-y-0 right-0 z-40 flex flex-col flex-shrink-0 w-64 text-gray-300 transition-all bg-gray-800" :class="{ 'translate-x-full': !rightSidebarOpen }" x-cloak>
+        <div class="flex items-center justify-between flex-shrink-0 h-16 px-4 border-b border-gray-700">
           <h3 class="text-lg font-bold">Settings</h3>
-          <button @click="rightSidebarOpen = false" class="text-gray-400 hover:text-white" title="Close settings" > <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" > <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" ></path> </svg> </button>
+          <button @click="rightSidebarOpen = false" class="text-gray-400 hover:text-white" title="Close settings"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg></button>
         </div>
         <div class="flex-1 p-4 space-y-6 overflow-y-auto">
-          <div> <label class="block text-sm font-medium text-gray-400 mb-2" >Gemini API Key</label > <div class="space-y-3"> <div class="relative"> <input x-model="apiKey" :type="showApiKey ? 'text' : 'password'" placeholder="Enter your Gemini API key..." class="w-full px-3 py-2 text-sm bg-gray-700 border border-gray-600 rounded-md text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent pr-10" /> <button @click="showApiKey = !showApiKey" class="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-200" title="Toggle visibility" > <svg x-show="!showApiKey" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" > <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" ></path> <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" ></path> </svg> <svg x-show="showApiKey" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="display: none;" > <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L21 21" ></path> </svg> </button> </div> <div class="flex gap-2"> <button @click="saveApiKey()" class="flex-1 px-3 py-2 text-xs font-medium text-white bg-green-600 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 transition-colors" > Save </button> <button @click="clearApiKey()" class="flex-1 px-3 py-2 text-xs font-medium text-gray-300 bg-gray-600 rounded-md hover:bg-gray-500 focus:outline-none focus:ring-2 focus:ring-gray-500 transition-colors" > Clear </button> </div> </div> </div>
-          <div class="pt-4 border-t border-gray-700"> <div class="flex items-center justify-between"> <label for="zen-mode" class="text-sm font-medium text-gray-300">Zen Mode</label> <button @click="zenMode = !zenMode" id="zen-mode" class="relative inline-flex items-center h-6 transition-colors rounded-full w-11" :class="zenMode ? 'bg-green-500' : 'bg-gray-600'" > <span class="inline-block w-4 h-4 transition-transform transform bg-white rounded-full" :class="{ 'translate-x-6': zenMode, 'translate-x-1': !zenMode }" ></span> </button> </div> </div>
-          <div class="pt-4 border-t border-gray-700"> <label class="block text-sm font-medium text-gray-400">Model</label> <div class="mt-2 space-y-2"> <div class="flex items-center"> <input x-model="selectedModel" id="gemini-pro" type="radio" value="pro" class="w-4 h-4 bg-gray-700 border-gray-500" :class="proTheme.radioRing" /> <label for="gemini-pro" class="flex items-center gap-2 ml-3 text-sm font-medium text-gray-300" >💎 Gemini Pro</label > </div> <div class="flex items-center"> <input x-model="selectedModel" id="gemini-flash" type="radio" value="flash" class="w-4 h-4 bg-gray-700 border-gray-500" :class="flashTheme.radioRing" /> <label for="gemini-flash" class="flex items-center gap-2 ml-3 text-sm font-medium text-gray-300" >⚡️ Gemini Flash</label > </div> </div> </div>
+          <div><label class="block text-sm font-medium text-gray-400 mb-2">Gemini API Key</label><div class="space-y-3"><div class="relative"><input x-model="apiKey" :type="showApiKey ? 'text' : 'password'" placeholder="Enter your Gemini API key..." class="w-full px-3 py-2 text-sm bg-gray-700 border border-gray-600 rounded-md text-gray-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent pr-10" /><button @click="showApiKey = !showApiKey" class="absolute inset-y-0 right-0 flex items-center pr-3 text-gray-400 hover:text-gray-200" title="Toggle visibility"><svg x-show="!showApiKey" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"></path></svg><svg x-show="showApiKey" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" style="display: none;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L21 21"></path></svg></button></div><div class="flex gap-2"><button @click="saveApiKey()" class="flex-1 px-3 py-2 text-xs font-medium text-white bg-green-600 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 transition-colors">Save</button><button @click="clearApiKey()" class="flex-1 px-3 py-2 text-xs font-medium text-gray-300 bg-gray-600 rounded-md hover:bg-gray-500 focus:outline-none focus:ring-2 focus:ring-gray-500 transition-colors">Clear</button></div></div></div>
+          <div class="pt-4 border-t border-gray-700"><div class="flex items-center justify-between"><label for="zen-mode" class="text-sm font-medium text-gray-300">Zen Mode</label><button @click="zenMode = !zenMode" id="zen-mode" class="relative inline-flex items-center h-6 transition-colors rounded-full w-11" :class="zenMode ? 'bg-green-500' : 'bg-gray-600'"><span class="inline-block w-4 h-4 transition-transform transform bg-white rounded-full" :class="{ 'translate-x-6': zenMode, 'translate-x-1': !zenMode }"></span></button></div></div>
+          <div class="pt-4 border-t border-gray-700"><label class="block text-sm font-medium text-gray-400">Model</label><div class="mt-2 space-y-2"><div class="flex items-center"><input x-model="selectedModel" id="gemini-pro" type="radio" value="pro" class="w-4 h-4 bg-gray-700 border-gray-500" :class="proTheme.radioRing" /><label for="gemini-pro" class="flex items-center gap-2 ml-3 text-sm font-medium text-gray-300">💎 Gemini Pro</label></div><div class="flex items-center"><input x-model="selectedModel" id="gemini-flash" type="radio" value="flash" class="w-4 h-4 bg-gray-700 border-gray-500" :class="flashTheme.radioRing" /><label for="gemini-flash" class="flex items-center gap-2 ml-3 text-sm font-medium text-gray-300">⚡️ Gemini Flash</label></div></div></div>
         </div>
       </aside>
       <!-- Overlay -->
-      <div x-show="(leftSidebarOpen && !zenMode && window.innerWidth < 1024) || rightSidebarOpen" x-transition.opacity.300ms @click="leftSidebarOpen = false; rightSidebarOpen = false" class="fixed inset-0 z-30 bg-black/50" x-cloak ></div>
+      <div x-show="(leftSidebarOpen && !zenMode && window.innerWidth < 1024) || rightSidebarOpen" x-transition.opacity.300ms @click="leftSidebarOpen = false; rightSidebarOpen = false" class="fixed inset-0 z-30 bg-black/50" x-cloak></div>
     </div>
   </body>
 </html>

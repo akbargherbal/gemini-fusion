@@ -22,9 +22,9 @@ This ensures that our project's "law" and its "enforcement" remain in perfect al
 
 ### **2. High-Level Status**
 
-- **Overall Progress:** 80%
-- **Current Milestone:** Milestone 2: The Core Chat Loop
-- **Focus for Next Session:** Implement conversation creation and message persistence logic.
+- **Overall Progress:** 90%
+- **Current Milestone:** Milestone 3: State Management & UI Finalization
+- **Focus for Next Session:** Implement Conversation History UI.
 
 ---
 
@@ -43,7 +43,7 @@ This ensures that our project's "law" and its "enforcement" remain in perfect al
   - [x] **Build a Synchronous Chat Endpoint:** Implement `POST /api/chat/sync` as a temporary test endpoint.
   - [x] **Integration Test for Endpoints:** Test all endpoints with `TestClient` to verify database interaction.
 
-#### **Milestone 2: The Core Chat Loop (`In Progress`)**
+#### **Milestone 2: The Core Chat Loop (`Complete`)**
 
 - **Goal:** Implement the end-to-end user journey of sending a message and receiving a streamed response from the live Gemini API.
 - **Tasks:**
@@ -52,9 +52,9 @@ This ensures that our project's "law" and its "enforcement" remain in perfect al
   - [x] **Implement SSE Streaming Endpoint:** In `routers/chat.py`, create the `POST /api/chat/stream` endpoint using `EventSourceResponse`.
   - [x] **Integration Test for SSE Endpoint:** Write a `Pytest` integration test to verify the streaming logic.
   - [x] **Frontend HTMX Integration:** Wire up the message form to the SSE endpoint to render the streamed response.
-  - [ ] **Implement Conversation Creation Logic:** Generate a topic from the first user message.
-  - [ ] **Implement Message Persistence:** Save the user message and the full AI response to the database after the stream completes.
-  - [ ] **Integration Test for Core Loop:** Write a test to verify the entire chat and persistence flow.
+  - [x] **Implement Conversation Creation Logic:** Generate a topic from the first user message.
+  - [x] **Implement Message Persistence:** Save the user message and the full AI response to the database after the stream completes.
+  - [x] **Integration Test for Core Loop:** Write a test to verify the entire chat and persistence flow.
 
 #### **Milestone 3: State Management & UI Finalization (`To Do`)**
 

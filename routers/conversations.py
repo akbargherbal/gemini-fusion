@@ -8,9 +8,14 @@ from db.database import engine
 from db.models import Conversation
 from schemas.chat import ConversationRead, MessageRead
 
+
+from fastapi.responses import HTMLResponse
+from fastapi.templating import Jinja2Templates
+
 # Create an API router for conversation-related endpoints
 router = APIRouter()
-
+# Setup Jinja2 templates
+templates = Jinja2Templates(directory="templates")
 
 # Dependency function to get a database session for a request
 def get_session():
@@ -24,6 +29,26 @@ def get_session():
             yield session
         finally:
             print("[DIAGNOSTIC] Closing database session.")
+
+
+
+
+
+
+
+@router.get("/api/conversations/list", response_class=HTMLResponse)
+def get_conversations_list(session: Session = Depends(get_session)):
+    """
+    Fetches all conversations and returns them as an HTML fragment
+    to be injected into the sidebar by HTMX.
+    """
+    conversations = session.exec(select(Conversation)).all()
+    # Note: We are creating a new template snippet for this.
+    return templates.TemplateResponse(
+        "snippets/conversation_list.html",
+        {"request": {}, "conversations": conversations},
+    )
+
 
 
 @router.get("/api/conversations", response_model=list[ConversationRead])
