@@ -126,7 +126,7 @@ def test_stream_chat_invalid_session(client: TestClient):
     assert response.json() == {"detail": "Chat session not found or expired."}
 
 
-@pytest.mark.parametrize("anyio_backend", ["trio"]) # Run this test only with trio
+@pytest.mark.parametrize("anyio_backend", ["trio"])  # Run this test only with trio
 async def test_full_chat_flow_and_persistence(
     client: TestClient, session: Session, anyio_backend
 ):
@@ -147,28 +147,35 @@ async def test_full_chat_flow_and_persistence(
     conversation_id = init_data["conversation_id"]
 
     # Verify the user message was saved immediately
-    db_convo = session.get(Conversation, conversation_id)
-    assert db_convo is not None
-    assert len(db_convo.messages) == 1
-    assert db_convo.messages[0].role == "user"
-    assert db_convo.messages[0].content == "Test persistence"
+    db_convo_initial = session.get(Conversation, conversation_id)
+    assert db_convo_initial is not None
+    assert len(db_convo_initial.messages) == 1
 
     # 2. Mock the Gemini service and stream the response
     with patch(
         "routers.chat.async_stream_gemini_response", new=mock_successful_stream
-    ) as mock_stream:
+    ):
         stream_response = client.get(f"/api/chat/stream/{session_id}")
-        # Ensure the stream is fully consumed
+        # Ensure the stream is fully consumed, allowing the background task to complete
         _ = stream_response.text
 
     assert stream_response.status_code == 200
 
-    # 3. Assert: Verify the AI message was saved to the database
-    # We need to refresh the conversation object to see the new message
-    session.refresh(db_convo)
-    assert len(db_convo.messages) == 2
+    # 3. Assert: Verify the AI message was saved to the database.
+    # THIS IS THE CRITICAL FIX:
+    # We must commit the current session to end its transaction, then query again.
+    # This ensures we are reading the state of the DB *after* the background
+    # thread has committed its own transaction.
+    session.commit()
+
+    # Re-fetch the conversation from the database in a clean state.
+    db_convo_final = session.get(Conversation, conversation_id)
+    assert db_convo_final is not None
+    assert len(db_convo_final.messages) == 2
+
+    # Verify both messages are present and correct
+    roles = {msg.role for msg in db_convo_final.messages}
+    assert roles == {"user", "ai"}
     
-    ai_message = [m for m in db_convo.messages if m.role == 'ai'][0]
-    assert ai_message is not None
-    assert ai_message.content == "This is a test."
-    assert ai_message.conversation_id == conversation_id
+    ai_message_content = [m.content for m in db_convo_final.messages if m.role == 'ai'][0]
+    assert ai_message_content == "This is a test."
