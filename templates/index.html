@@ -210,11 +210,17 @@
         <div class="flex items-center justify-between flex-shrink-0 h-16 px-4 border-b border-gray-700"><a href="#" class="text-xl font-bold">Gemini Fusion</a></div>
         
         <!-- Conversation List -->
-        <div class="flex-1 overflow-y-auto" hx-get="/api/conversations" hx-trigger="loadConversations from:body, load" hx-target="#conversation-list">
+        <div
+          class="flex-1 overflow-y-auto"
+          hx-get="/api/conversations/list"
+          hx-trigger="loadConversations from:body, load"
+          hx-target="#conversation-list"
+        >
           <nav class="px-2 py-4">
             <a id="new-chat-button" href="#" @click.prevent="newChat()" class="flex items-center px-4 py-2 text-sm text-white bg-gray-700 rounded-md">New Chat</a>
             <div id="conversation-list" class="mt-4 space-y-1">
               <!-- Conversation items will be loaded here by HTMX -->
+              <div class="px-4 text-sm text-gray-400">Loading chats...</div>
             </div>
           </nav>
         </div>

@@ -3,9 +3,14 @@
 <a
   href="#"
   class="flex items-center w-full px-4 py-2 text-sm text-gray-300 rounded-md hover:bg-gray-700"
-  hx-get="/api/conversations/{{ convo.id }}"
+  hx-get="/api/conversations/{{ convo.id }}/messages"
   hx-target="#chat-container"
-  @click="activeConversationId = {{ convo.id }}; $el.parentElement.querySelectorAll('a').forEach(a => a.classList.remove('bg-gray-700')); $el.classList.add('bg-gray-700')"
+  @click="
+    activeConversationId = {{ convo.id }};
+    document.querySelectorAll('#new-chat-button, #conversation-list a').forEach(el => el.classList.remove('bg-gray-700', 'text-white'));
+    $el.classList.add('bg-gray-700', 'text-white');
+    if (window.innerWidth < 1024) { leftSidebarOpen = false; }
+  "
 >
   {{ convo.topic }}
 </a>

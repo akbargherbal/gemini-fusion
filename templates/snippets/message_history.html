@@ -1,0 +1,41 @@
+<!-- templates/snippets/message_history.html -->
+{% for message in messages %}
+  {% if message.role == 'user' %}
+  <!-- User Message -->
+  <div class="flex items-start justify-end">
+    <div
+      class="max-w-lg p-4 mr-4 text-white transition-all rounded-lg shadow-md"
+      :class="activeTheme.userMessageBg"
+    >
+      <p class="text-sm">{{ message.content }}</p>
+    </div>
+    <div
+      class="flex items-center justify-center flex-shrink-0 w-10 h-10 font-bold bg-gray-300 rounded-full dark:bg-gray-700"
+    >
+      U
+    </div>
+  </div>
+  {% elif message.role == 'ai' %}
+  <!-- AI Message -->
+  <div class="flex items-start">
+    <div
+      class="flex items-center justify-center flex-shrink-0 w-10 h-10 font-bold text-white transition-all rounded-full"
+      :class="`bg-${activeTheme.accentColor}-500`"
+    >
+      AI
+    </div>
+    <div
+      class="max-w-lg p-4 ml-4 prose-sm prose transition-all rounded-lg dark:prose-invert"
+      :class="activeTheme.aiMessageBg"
+    >
+      <!-- 
+        NOTE: We use the 'safe' filter because the AI response can contain
+        Markdown that we will later render as HTML. For now, this is fine,
+        but in a production app with user-generated content, you would want
+        a more robust sanitization process.
+      -->
+      {{ message.content | safe }}
+    </div>
+  </div>
+  {% endif %}
+{% endfor %}
