@@ -1,6 +1,6 @@
 # routers/chat.py
 from fastapi import APIRouter, Depends, HTTPException
-from sqlmodel import Session
+from sqlmodel import Session, select
 from sse_starlette.sse import EventSourceResponse
 import asyncio
 import uuid
@@ -48,7 +48,6 @@ def prepare_conversation_and_save_user_message(
     return conversation
 
 
-# --- MODIFIED FUNCTION ---
 def save_ai_message(conversation_id: int, content: str, engine: Engine):
     """
     Synchronous, blocking function that uses a specific engine to create its
@@ -57,7 +56,6 @@ def save_ai_message(conversation_id: int, content: str, engine: Engine):
     if not content:
         return
 
-    # Use the provided engine to create the session
     with Session(engine) as session:
         ai_message = Message(
             content=content.strip(), role="ai", conversation_id=conversation_id
@@ -98,6 +96,25 @@ async def stream_chat(session_id: str, session: Session = Depends(get_session)):
         )
 
     session_data = active_sessions[session_id]
+    conversation_id = session_data["conversation_id"]
+
+    # --- NEW: Fetch conversation history ---
+    # We fetch all messages EXCEPT the very last one, which is the user's new prompt
+    # that is already in session_data["message"].
+    statement = (
+        select(Message)
+        .where(Message.conversation_id == conversation_id)
+        .order_by(Message.id)
+    )
+    history_messages = session.exec(statement).all()
+    
+    # The current user message is the last one in the history. We pass it separately.
+    # The history should contain all messages *before* the current one.
+    if history_messages:
+        history_to_send = history_messages[:-1]
+    else:
+        history_to_send = []
+
 
     model_map = {
         "pro": "gemini-1.5-pro-latest",
@@ -114,6 +131,7 @@ async def stream_chat(session_id: str, session: Session = Depends(get_session)):
                 api_key=session_data["api_key"],
                 model_name=model_to_use,
                 message=session_data["message"],
+                history=history_to_send, # Pass the history here
             )
             yield {"event": "stream_start", "data": ""}
             async for chunk in response_stream:
@@ -123,7 +141,7 @@ async def stream_chat(session_id: str, session: Session = Depends(get_session)):
 
             await asyncio.to_thread(
                 save_ai_message,
-                session_data["conversation_id"],
+                conversation_id,
                 full_ai_response,
                 engine_to_use,
             )
