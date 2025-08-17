@@ -63,55 +63,55 @@
           sseSource: null,
           activeConversationId: null,
 
-          proTheme: { 
-            name: 'pro', 
-            icon: '💎', 
-            accentColor: 'indigo', 
-            chatBg: 'bg-gray-100 dark:bg-gray-900', 
-            aiMessageBg: 'bg-white dark:bg-gray-800', 
-            userMessageBg: 'bg-indigo-600', 
-            sendButtonBg: 'bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400', 
-            radioRing: 'focus:ring-indigo-500 text-indigo-600' 
+          proTheme: {
+            name: 'pro',
+            icon: '💎',
+            accentColor: 'indigo',
+            chatBg: 'bg-gray-100 dark:bg-gray-900',
+            aiMessageBg: 'bg-white dark:bg-gray-800',
+            userMessageBg: 'bg-indigo-600',
+            sendButtonBg: 'bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400',
+            radioRing: 'focus:ring-indigo-500 text-indigo-600'
           },
-          flashTheme: { 
-            name: 'flash', 
-            icon: '⚡️', 
-            accentColor: 'cyan', 
-            chatBg: 'bg-gradient-to-br from-white to-cyan-50 dark:from-gray-900 dark:to-teal-900/40', 
-            aiMessageBg: 'bg-white dark:bg-gray-800 border-l-4 border-cyan-400 shadow-lg', 
-            userMessageBg: 'bg-cyan-600', 
-            sendButtonBg: 'bg-cyan-600 hover:bg-cyan-700 disabled:bg-cyan-400', 
-            radioRing: 'focus:ring-cyan-500 text-cyan-500' 
+          flashTheme: {
+            name: 'flash',
+            icon: '⚡️',
+            accentColor: 'cyan',
+            chatBg: 'bg-gradient-to-br from-white to-cyan-50 dark:from-gray-900 dark:to-teal-900/40',
+            aiMessageBg: 'bg-white dark:bg-gray-800 border-l-4 border-cyan-400 shadow-lg',
+            userMessageBg: 'bg-cyan-600',
+            sendButtonBg: 'bg-cyan-600 hover:bg-cyan-700 disabled:bg-cyan-400',
+            radioRing: 'focus:ring-cyan-500 text-cyan-500'
           },
-          
-          get activeTheme() { 
-            return this.selectedModel === 'pro' ? this.proTheme : this.flashTheme; 
+
+          get activeTheme() {
+            return this.selectedModel === 'pro' ? this.proTheme : this.flashTheme;
           },
-          
-          saveApiKey() { 
-            if (this.apiKey.trim()) { 
-              alert('API Key saved successfully!'); 
-            } else { 
-              alert('Please enter a valid API key'); 
-            } 
+
+          saveApiKey() {
+            if (this.apiKey.trim()) {
+              alert('API Key saved successfully!');
+            } else {
+              alert('Please enter a valid API key');
+            }
           },
-          
-          clearApiKey() { 
-            this.apiKey = ''; 
+
+          clearApiKey() {
+            this.apiKey = '';
           },
 
           async prepareForSending(event) {
             if (event.target !== this.$refs.chatForm) return;
             const messageText = this.$refs.chatInput.value.trim();
             if (!messageText) { return; }
-            if (!this.apiKey.trim()) { 
-              alert('Please enter your Gemini API key in the settings first.'); 
-              return; 
+            if (!this.apiKey.trim()) {
+              alert('Please enter your Gemini API key in the settings first.');
+              return;
             }
-            
+
             this.$refs.chatInput.value = '';
             this.$refs.chatInput.style.height = 'auto';
-            
+
             const chatContainer = document.getElementById('chat-container');
             const userMessageHtml = `<div class='flex items-start justify-end'><div class='max-w-lg p-4 mr-4 text-white rounded-lg shadow-md ${this.activeTheme.userMessageBg}'><p class='text-sm'>${messageText.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p></div><div class='flex items-center justify-center flex-shrink-0 w-10 h-10 font-bold bg-gray-300 rounded-full dark:bg-gray-700'>U</div></div>`;
             chatContainer.insertAdjacentHTML('beforeend', userMessageHtml);
@@ -119,7 +119,7 @@
             const aiPlaceholderHtml = `<div class='flex items-start'><div class='flex items-center justify-center flex-shrink-0 w-10 h-10 font-bold text-white transition-all rounded-full bg-${this.activeTheme.accentColor}-500'>AI</div><div id='${this.activeAiMessageId}' class='w-full max-w-lg p-4 ml-4 prose-sm prose transition-all rounded-lg dark:prose-invert ${this.activeTheme.aiMessageBg}'><span class='blinking-cursor'></span></div></div>`;
             chatContainer.insertAdjacentHTML('beforeend', aiPlaceholderHtml);
             chatContainer.scrollTop = chatContainer.scrollHeight;
-            
+
             try {
               const response = await fetch('/api/chat/initiate', {
                 method: 'POST',
@@ -127,16 +127,17 @@
                 body: JSON.stringify({
                   message: messageText,
                   api_key: this.apiKey,
+                  selected_model: this.selectedModel, // <-- THIS IS THE MODIFIED LINE
                   conversation_id: this.activeConversationId
                 })
               });
-              
+
               if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-              
+
               const data = await response.json();
               this.activeConversationId = data.conversation_id;
               this.startSseConnection(data.session_id);
-              
+
             } catch (error) {
               console.error('[ERROR] Failed to initiate chat:', error);
               const targetDiv = document.getElementById(this.activeAiMessageId);
@@ -201,14 +202,14 @@
   </head>
   <body class="font-sans text-gray-900 bg-gray-100 dark:bg-gray-900 dark:text-gray-100">
     <div x-data="appData()" @resize.window="if (window.innerWidth > 1024) leftSidebarOpen = true" @submit.prevent.window="if ($event.target === $refs.chatForm) { isSending = true; prepareForSending($event); }" class="relative flex min-h-screen">
-      
+
       <!-- Persistent Gear Icon -->
       <div x-show="!rightSidebarOpen" class="fixed z-50 top-4 right-4"><button @click="zenMode ? (zenMode = false, rightSidebarOpen = true) : rightSidebarOpen = !rightSidebarOpen" class="flex items-center justify-center w-12 h-12 text-gray-600 transition-all rounded-full shadow-lg bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm dark:text-gray-300 hover:text-gray-900 dark:hover:text-white" title="Toggle Settings"><svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924-1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.096 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg></button></div>
 
       <!-- Left Sidebar -->
       <aside x-show="!zenMode" :class="{ '-translate-x-full': !leftSidebarOpen }" class="fixed inset-y-0 left-0 z-40 flex flex-col flex-shrink-0 w-64 text-gray-300 transition-all bg-gray-800 lg:static" x-transition x-cloak>
         <div class="flex items-center justify-between flex-shrink-0 h-16 px-4 border-b border-gray-700"><a href="#" class="text-xl font-bold">Gemini Fusion</a></div>
-        
+
         <!-- Conversation List -->
         <div
           class="flex-1 overflow-y-auto"
@@ -224,7 +225,7 @@
             </div>
           </nav>
         </div>
-        
+
         <div class="flex-shrink-0 p-4 border-t border-gray-700"><a href="#" class="flex items-center w-full px-4 py-2 text-sm rounded-md hover:bg-gray-700">Logout</a></div>
       </aside>
 

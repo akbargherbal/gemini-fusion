@@ -81,6 +81,7 @@ async def initiate_chat(request: ChatRequest, session: Session = Depends(get_ses
         "conversation_id": conversation.id,
         "api_key": request.api_key,
         "message": request.message,
+        "selected_model": request.selected_model,
         "created_at": asyncio.get_event_loop().time(),
     }
     print(
@@ -89,7 +90,6 @@ async def initiate_chat(request: ChatRequest, session: Session = Depends(get_ses
     return {"session_id": session_id, "conversation_id": conversation.id}
 
 
-# --- MODIFIED ENDPOINT ---
 @router.get("/api/chat/stream/{session_id}")
 async def stream_chat(session_id: str, session: Session = Depends(get_session)):
     if session_id not in active_sessions:
@@ -98,10 +98,13 @@ async def stream_chat(session_id: str, session: Session = Depends(get_session)):
         )
 
     session_data = active_sessions[session_id]
-    model_to_use = "gemini-1.5-flash-latest"
-    
-    # Determine which engine to use. In tests, the session is bound to the test engine.
-    # In production, it will be the global db_engine.
+
+    model_map = {
+        "pro": "gemini-1.5-pro-latest",
+        "flash": "gemini-1.5-flash-latest",
+    }
+    model_to_use = model_map.get(session_data.get("selected_model"), "gemini-1.5-flash-latest")
+
     engine_to_use = session.get_bind()
 
     async def event_generator():
@@ -118,7 +121,6 @@ async def stream_chat(session_id: str, session: Session = Depends(get_session)):
                     full_ai_response += chunk
                     yield {"event": "message", "data": chunk}
 
-            # Pass the correct engine to the background task
             await asyncio.to_thread(
                 save_ai_message,
                 session_data["conversation_id"],

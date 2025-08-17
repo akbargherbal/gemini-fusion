@@ -1,3 +1,4 @@
+# schemas/chat.py
 from pydantic import BaseModel
 
 
@@ -9,6 +10,7 @@ class ChatRequest(BaseModel):
 
     message: str
     api_key: str
+    selected_model: str  # 'pro' or 'flash'
     conversation_id: int | None = None
 
 
