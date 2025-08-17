@@ -127,7 +127,7 @@
                 body: JSON.stringify({
                   message: messageText,
                   api_key: this.apiKey,
-                  selected_model: this.selectedModel, // <-- THIS IS THE MODIFIED LINE
+                  selected_model: this.selectedModel,
                   conversation_id: this.activeConversationId
                 })
               });
@@ -153,8 +153,31 @@
             this.sseSource = new EventSource(`/api/chat/stream/${sessionId}`);
             this.sseSource.addEventListener('message', e => this.handleStreamMessage(e.data));
             this.sseSource.addEventListener('stream_complete', () => this.handleStreamComplete());
-            this.sseSource.addEventListener('error', e => this.handleStreamError('Connection error occurred'));
-            this.sseSource.onerror = e => this.handleStreamError('Failed to connect to streaming service');
+            // Listen for our custom 'error' event from the backend
+            this.sseSource.addEventListener('error', e => this.handleStreamError(e.data));
+            // Handle generic network errors for the EventSource itself
+            this.sseSource.onerror = e => this.handleStreamError('Failed to connect to the streaming service. Please check your network connection and try again.');
+          },
+
+          handleStreamError(errorMessage) {
+            // Per the execution plan, show a browser alert for immediate feedback.
+            if (errorMessage) {
+              alert(`An error occurred: ${errorMessage}`);
+            }
+
+            const targetDiv = document.getElementById(this.activeAiMessageId);
+            if (targetDiv) {
+              // Provide a clear message in the chat bubble itself.
+              targetDiv.innerHTML = `<p class="text-red-500"><strong>Error:</strong> ${errorMessage || 'The connection was lost.'}</p>`;
+            }
+
+            // Clean up the state
+            this.activeAiMessageId = null;
+            this.isSending = false;
+            if (this.sseSource) {
+              this.sseSource.close();
+              this.sseSource = null;
+            }
           },
 
           handleStreamMessage(data) {
@@ -174,19 +197,6 @@
             }
             // Refresh conversation list to show the new topic
             htmx.trigger('#conversation-list', 'loadConversations');
-          },
-
-          handleStreamError(errorMessage) {
-            const targetDiv = document.getElementById(this.activeAiMessageId);
-            if (targetDiv) {
-              targetDiv.innerHTML = `<p class="text-red-500">Error: ${errorMessage}</p>`;
-            }
-            this.activeAiMessageId = null;
-            this.isSending = false;
-            if (this.sseSource) {
-              this.sseSource.close();
-              this.sseSource = null;
-            }
           },
 
           newChat() {

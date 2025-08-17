@@ -4,7 +4,6 @@ from sqlmodel import Session, SQLModel, create_engine
 # Import the models we defined
 from db.models import Conversation, Message
 
-
 # Unit tests for the database models (Conversation, Message).
 # These tests will verify model creation, relationships,
 # and any specific logic within the models themselves.
@@ -32,7 +31,6 @@ def test_create_and_link_models(session: Session):
     message_2_ai = Message(content="Hello User! How can I help?", role="ai")
 
     # 2. Establish the relationship
-    # Appending to the list automatically sets the .conversation attribute on the message
     conversation_1.messages.append(message_1_user)
     conversation_1.messages.append(message_2_ai)
 
