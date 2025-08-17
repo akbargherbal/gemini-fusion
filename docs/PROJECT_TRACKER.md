@@ -2,7 +2,7 @@
 
 # Gemini Fusion - Project Tracker v0.1.0
 
-**Last Updated:** 2025-08-17 (End of Session 8)
+**Last Updated:** 2025-08-17 (End of Session 9, Part 2)
 
 ### **1. Governance and Change Control**
 
@@ -22,9 +22,9 @@ This ensures that our project's "law" and its "enforcement" remain in perfect al
 
 ### **2. High-Level Status**
 
-- **Overall Progress:** 92%
+- **Overall Progress:** 96%
 - **Current Milestone:** Milestone 3: State Management & UI Finalization
-- **Focus for Next Session:** Implement Model Selection Integration.
+- **Focus for Next Session:** Implement frontend error handling and perform final MVP verification.
 
 ---
 
@@ -61,8 +61,8 @@ This ensures that our project's "law" and its "enforcement" remain in perfect al
 - **Goal:** Build out conversation history management and integrate all remaining "Should Have" UI features.
 - **Tasks:**
   - [x] **Conversation History UI:** Use HTMX to populate and load conversations from the backend.
-  - [ ] **Model Selection Integration:** Pass the selected model (`pro` vs. `flash`) to the backend.
-  - [ ] **Backend Error Handling:** Implement `try...except` blocks for Gemini API calls and return proper `HTTPException`s.
+  - [x] **Model Selection Integration:** Pass the selected model (`pro` vs. `flash`) to the backend.
+  - [x] **Backend Error Handling:** Implement `try...except` blocks for Gemini API calls and return proper `HTTPException`s.
   - [ ] **Frontend Error Handling:** Add frontend logic to display an `alert()` on stream failures.
   - [ ] **Final Polish & Verification:** Conduct a full manual test against the MVP Success Criteria.
 
